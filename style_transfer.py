@@ -3,12 +3,12 @@ import torch.nn as nn
 import torch.optim as optim
 import torchvision.models as models
 import torchvision.transforms as transforms
-
+from torchvision.models import vgg19, VGG19_Weights
 from PIL import Image
 import sys
 import os
 
-device = 'cpu' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # Загрузка и преобразование изображения
 def load_image(path):
@@ -31,7 +31,8 @@ class VGG(nn.Module):
     def __init__(self):
         super(VGG, self).__init__()
         self.req_features = ['0', '5', '10', '19', '28']
-        self.model = models.vgg19(pretrained=True).features[:29]
+        self.model = vgg19(weights=VGG19_Weights.DEFAULT).features[:29]
+
 
     def forward(self, x):
         features = []
@@ -75,24 +76,38 @@ def apply_style(content_path, style_tensor_path, output_path):
     generated = content.clone().requires_grad_(True)
 
     optimizer = optim.Adam([generated], lr=0.004)
-    epochs = 100
+    epochs = 1
 
-    for i in range(epochs):
-        gen_feat = model(generated)
-        cont_feat = model(content)
+    try:
+        for i in range(epochs):
+            gen_feat = model(generated)
+            cont_feat = model(content)
 
-        loss = calculate_total_loss(gen_feat, cont_feat, style_feat)
+            loss = calculate_total_loss(gen_feat, cont_feat, style_feat)
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
-        if i % 100 == 0:
-            print(f"[{i}/{epochs}] Loss: {loss.item():.4f}")
+            if i % 100 == 0:
+                print(f"[{i}/{epochs}] Loss: {loss.item():.4f}")
 
-    save_output(generated, output_path)
-    print(f"✅ Стилизация завершена. Сохранено в {output_path}")
+        # Сохраняем только если всё прошло без exception
+        save_output(generated, output_path)
+        print(f"✅ Стилизация завершена. Сохранено в {output_path}")
 
+    except Exception as e:
+        # Логируем ошибку
+        print(f"❌ Ошибка во время стилизации: {e}", file=sys.stderr)
+        # Удаляем потенциально частично записанный файл
+        if os.path.exists(output_path):
+            try:
+                os.remove(output_path)
+                print(f"🗑 Удалён неполный файл: {output_path}")
+            except OSError as rmErr:
+                print(f"⚠️ Не удалось удалить {output_path}: {rmErr}", file=sys.stderr)
+        # Завершаем с ошибкой
+        sys.exit(1)
 # CLI
 if __name__ == "__main__":
     if len(sys.argv) < 2:

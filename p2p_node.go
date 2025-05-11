@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -100,8 +101,45 @@ func main() {
 		fmt.Println("🔧 Режим процессора: обработчики для /receive-style/1.0.0 и /receive-image/1.0.0 зарегистрированы.")
 		// Режим процессора работает только для обработки входящих данных
 		select {}
-	}
+	} else {
+		h.SetStreamHandler("/receive-image-result/1.0.0", func(s network.Stream) {
+			defer s.Close()
+			reader := bufio.NewReader(s)
 
+			header, err := reader.ReadString('\n')
+			if err != nil {
+				log.Println("❌ Ошибка чтения результата:", err)
+				return
+			}
+			header = strings.TrimSpace(header)
+
+			if header == "ERROR" {
+				msg, _ := reader.ReadString('\n')
+				log.Println("❌ Процессор сообщил об ошибке:", strings.TrimSpace(msg))
+				return
+			}
+
+			if header == "IMAGE" {
+				timestamp := time.Now().UnixNano()
+				dir := "processed_images"
+				os.MkdirAll(dir, 0755)
+				fileName := fmt.Sprintf("%s/styled_%d.jpg", dir, timestamp)
+				file, err := os.Create(fileName)
+				if err != nil {
+					log.Println("❌ Ошибка создания файла результата:", err)
+					return
+				}
+				defer file.Close()
+				_, err = io.Copy(file, reader)
+				if err != nil {
+					log.Println("❌ Ошибка сохранения результата:", err)
+					return
+				}
+				log.Println("✅ Обработанный файл получен:", fileName)
+			}
+		})
+
+	}
 	// Режим инициатора:
 	// 1. Извлекаем стиль
 	reader := bufio.NewReader(os.Stdin)
@@ -110,7 +148,7 @@ func main() {
 	styleImgPath = strings.TrimSpace(styleImgPath)
 
 	fmt.Println("⏳ Извлечение признаков стиля...")
-	cmd := exec.Command("python3", "style_transfer.py", "extract-style", styleImgPath, styleFile)
+	cmd := exec.Command(getPythonCommand(), "style_transfer.py", "extract-style", styleImgPath, styleFile)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -139,9 +177,17 @@ func main() {
 			fmt.Println("⚠️ Нет доступных получателей для файла:", file.Name())
 			continue
 		}
-		receiverInfo := peerstore.AddrInfo{ID: receiverID, Addrs: receiverAddrs}
+		receiverInfo := peerstore.AddrInfo{
+			ID:    receiverID,
+			Addrs: receiverAddrs,
+		}
 		h.Peerstore().AddAddrs(receiverInfo.ID, receiverInfo.Addrs, time.Hour)
 
+		err = h.Connect(context.Background(), receiverInfo)
+		if err != nil {
+			log.Println("❌ Ошибка подключения к получателю для отправки результата:", err)
+			return
+		}
 		// Если стиль еще не отправлен этому получателю, отправляем его
 		if !sentStyle[receiverID] {
 			sendStyle(h, receiverInfo, styleFile)
@@ -270,7 +316,6 @@ func receiveProcessedImage(s network.Stream) {
 
 // ================= Режим процессора =================
 
-
 // Обработчик получения файла стиля по протоколу "/receive-style/1.0.0"
 func handleReceiveStyle(s network.Stream) {
 	defer s.Close()
@@ -300,6 +345,13 @@ func handleReceiveStyle(s network.Stream) {
 	fmt.Println("🎨 Файл стиля получен и сохранен как:", fileName)
 	// Обновляем локальный styleFile для обработки
 	styleFile = fileName
+}
+
+func getPythonCommand() string {
+	if runtime.GOOS == "windows" {
+		return "python" // Windows не использует python3
+	}
+	return "python3"
 }
 
 // Обработчик получения изображения для стилизации по протоколу "/receive-image/1.0.0"
@@ -334,17 +386,24 @@ func handleReceiveImage(s network.Stream) {
 	dirOut := "processed_images"
 	os.MkdirAll(dirOut, 0755)
 	tmpOut := fmt.Sprintf("%s/styled_%d.jpg", dirOut, time.Now().UnixNano())
-	cmd := exec.Command("python3", "style_transfer.py", "stylize", tmpIn, styleFile, tmpOut)
+	// Сохраняем путь к адресам
+	addrs := []ma.Multiaddr{s.Conn().RemoteMultiaddr()}
+
+	cmd := exec.Command(getPythonCommand(), "style_transfer.py", "stylize", tmpIn, styleFile, tmpOut)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	fmt.Println("⏳ Запуск стилизации для", tmpIn)
 	if err := cmd.Run(); err != nil {
 		log.Println("❌ Ошибка стилизации:", err)
+		sendProcessedImage(s.Conn().RemotePeer(), addrs, "", true, "Ошибка стилизации изображения")
+		os.Remove(tmpIn)
 		return
 	}
 	fmt.Println("🖼 Стилизация завершена:", tmpOut)
-	// Отправляем результат обратно по протоколу "/receive-image-result/1.0.0"
-	sendProcessedImage(s.Conn().RemotePeer(), tmpOut)
+
+	// Отправляем результат
+	sendProcessedImage(s.Conn().RemotePeer(), addrs, tmpOut, false, "")
+
 	// Удаляем временные файлы
 	os.Remove(tmpIn)
 	os.Remove(tmpOut)
@@ -364,30 +423,50 @@ func saveReaderToFile(r *bufio.Reader, path string) error {
 }
 
 // Функция отправки обработанного изображения обратно отправителю (в режиме процессора)
-func sendProcessedImage(receiver peerstore.ID, filePath string) {
-	// Создаем новый хост для отправки результата
+func sendProcessedImage(receiver peerstore.ID, addrs []ma.Multiaddr, filePath string, failed bool, errMsg string) {
 	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
 	if err != nil {
-		log.Println("❌ Ошибка создания хоста для отправки результата:", err)
+		log.Println("❌ Ошибка создания хоста:", err)
 		return
 	}
 	defer h.Close()
+
+	receiverInfo := peerstore.AddrInfo{ID: receiver, Addrs: addrs}
+	h.Peerstore().AddAddrs(receiverInfo.ID, receiverInfo.Addrs, time.Minute)
+
+	err = h.Connect(context.Background(), receiverInfo)
+	if err != nil {
+		log.Println("❌ Ошибка подключения для отправки:", err)
+		return
+	}
+
 	stream, err := h.NewStream(context.Background(), receiver, "/receive-image-result/1.0.0")
 	if err != nil {
-		log.Println("❌ Ошибка установки соединения для отправки результата:", err)
+		log.Println("❌ Ошибка установления потока:", err)
 		return
 	}
 	defer stream.Close()
+
+	if failed || filePath == "" {
+		stream.Write([]byte("ERROR\n" + errMsg + "\n"))
+		log.Println("⚠️ Отправлено сообщение об ошибке:", errMsg)
+		return
+	}
+
+	// ⬇️ Новый блок: проверка наличия файла
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		errMsg := fmt.Sprintf("Файл результата не найден: %s", filePath)
+		stream.Write([]byte("ERROR\n" + errMsg + "\n"))
+		log.Println("⚠️ Ошибка: файл результата не существует")
+		return
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
-		log.Println("❌ Ошибка открытия обработанного файла:", err)
+		log.Println("❌ Ошибка открытия файла результата:", err)
 		return
 	}
-	defer file.Close()
-	_, err = io.Copy(stream, file)
-	if err != nil {
-		log.Println("❌ Ошибка отправки обработанного изображения:", err)
-		return
-	}
-	fmt.Println("✅ Обработанный файл отправлен обратно:", filePath)
+
+	stream.Write([]byte("IMAGE\n"))
+	io.Copy(stream, file)
 }
