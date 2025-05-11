@@ -62,11 +62,22 @@ def calculate_total_loss(gf, cf, sf, alpha=8, beta=70):
 
 # Извлечение признаков стиля
 def extract_style(style_image_path, out_tensor_path):
-    model = VGG().to(device).eval()
-    image = load_image(style_image_path)
-    features = model(image)
-    torch.save(features, out_tensor_path)
-    print(f"✅ Признаки стиля сохранены в {out_tensor_path}")
+    try:
+        model = VGG().to(device).eval()
+        image = load_image(style_image_path)
+        features = model(image)
+        torch.save(features, out_tensor_path)
+        print(f"✅ Признаки стиля сохранены в {out_tensor_path}")
+    except Exception as e:
+        print(f"❌ Ошибка извлечения стиля: {e}", file=sys.stderr)
+        if os.path.exists(out_tensor_path):
+            try:
+                os.remove(out_tensor_path)
+                print(f"🗑 Удалён частично сохранённый файл: {out_tensor_path}")
+            except Exception as rmErr:
+                print(f"⚠️ Не удалось удалить {out_tensor_path}: {rmErr}", file=sys.stderr)
+        sys.exit(1)
+
 
 # Применение стиля по признакам
 def apply_style(content_path, style_tensor_path, output_path):
