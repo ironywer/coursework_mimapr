@@ -1,1 +1,1 @@
-/ip4/127.0.0.1/tcp/9000/p2p/12D3KooWEKTC6adbxsLxt9bdnvhZwSh2sHtbx4ynUA7B9ha2hxWF
+/dns4/bootstrap-server/tcp/9000/p2p/12D3KooWJ87CYAhCrGEb7bwbBPgvDCNgWTK3gC8S7XxvWx8Q5vMQ

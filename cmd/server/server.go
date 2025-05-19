@@ -10,9 +10,9 @@ import (
 
 	libp2p "github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p/core/crypto"
-	peer "github.com/libp2p/go-libp2p/core/peer"
-	network "github.com/libp2p/go-libp2p/core/network"
 	host "github.com/libp2p/go-libp2p/core/host"
+	network "github.com/libp2p/go-libp2p/core/network"
+	peer "github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -40,6 +40,22 @@ func main() {
 	}
 
 	fmt.Println("🚀 Сервер запущен! ID:", h.ID())
+
+	// ——————————————————————————————————————
+	// Записываем свой адрес в bootstrap.txt
+	// addrs := h.Addrs()
+	// if len(addrs) == 0 {
+	// 	log.Fatal("❌ Не удалось получить адреса хоста для записи в bootstrap.txt")
+	//}
+	// Вместо ip4/0.0.0.0 используем DNS-имя сервиса в compose:
+	dnsName := "bootstrap-server" // должно совпадать с service name в docker-compose.yml
+	bootstrapLine := fmt.Sprintf("/dns4/%s/tcp/9000/p2p/%s\n",
+		dnsName, h.ID().String(),
+	)
+	if err := os.WriteFile("bootstrap.txt", []byte(bootstrapLine), 0644); err != nil {
+		log.Fatalf("❌ Не удалось записать bootstrap.txt: %v", err)
+	}
+	fmt.Println("✅ Записан bootstrap multiaddr:", bootstrapLine)
 
 	h.SetStreamHandler("/request-peer/1.0.0", handlePeerRequest)
 

@@ -1,0 +1,91 @@
+services:
+  bootstrap-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_SERVICE: cmd/server
+    container_name: bootstrap-server
+    networks:
+      - coursework-net
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./bootstrap.txt:/app/bootstrap.txt:write
+
+  initiator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_SERVICE: cmd/p2p_node
+    container_name: initiator
+    depends_on:
+      - bootstrap-server
+    networks:
+      - coursework-net
+    volumes:
+      - ./processed_images:/app/processed_images
+      - ./style_image:/app/style_image:ro
+      - ./test_images:/app/test_images:ro
+      - ./bootstrap.txt:/app/bootstrap.txt:ro
+    environment:
+      - MODE=initiator
+    # Оверрайдим entrypoint так, чтобы сразу подставить два ответа через stdin:
+    entrypoint: ["/bin/sh", "-c", 
+      "printf '%s\n%s\n' '/app/style_image/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg' '/app/test_images' | /usr/local/bin/app initiator"
+    ]
+  processor1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_SERVICE: cmd/p2p_node
+    container_name: processor1
+    depends_on:
+      - bootstrap-server
+    networks:
+      - coursework-net
+    volumes:
+      - ./bootstrap.txt:/app/bootstrap.txt:ro
+    environment:
+      - MODE=processor
+    command: ["processor"]
+
+  processor2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_SERVICE: cmd/p2p_node
+    container_name: processor2
+    depends_on:
+      - bootstrap-server
+    networks:
+      - coursework-net
+    volumes:
+      - ./bootstrap.txt:/app/bootstrap.txt:ro
+    environment:
+      - MODE=processor
+    command: ["processor"]
+
+  processor3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_SERVICE: cmd/p2p_node
+    container_name: processor3
+    depends_on:
+      - bootstrap-server
+    networks:
+      - coursework-net
+    volumes:
+      - ./bootstrap.txt:/app/bootstrap.txt:ro
+    environment:
+      - MODE=processor
+    command: ["processor"]
+
+networks:
+  coursework-net:
+    driver: bridge

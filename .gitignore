@@ -4,3 +4,7 @@ env/
 processed_images/
 received_images/
 received_styles/
+go.mod
+go.sum
+test.txt
+style.pt
