@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"coursework_mimapr/internal/db"
+
 	libp2p "github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p/core/crypto"
 	host "github.com/libp2p/go-libp2p/core/host"
@@ -26,6 +28,10 @@ var (
 )
 
 func main() {
+	if err := db.Init("tokens.db"); err != nil {
+		log.Fatal("❌ Не удалось инициализировать БД:", err)
+	}
+	log.Println("✅ БД подключена и таблица users готова")
 	privKey, err := loadOrCreateKey()
 	if err != nil {
 		log.Fatal(err)
