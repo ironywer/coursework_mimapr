@@ -29,9 +29,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY style_transfer.py .
-# Можно копировать полностью директорию internal, если Python-скрипт там что-то импортирует:
-# COPY internal/style/processor.go /not/used 
-# (он не нужен внутри контейнера, просто пример)
 
 # Копируем скомпилированный Go-бинарник
 COPY --from=builder /go/bin/app /usr/local/bin/app
