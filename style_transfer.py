@@ -87,7 +87,7 @@ def apply_style(content_path, style_tensor_path, output_path):
     generated = content.clone().requires_grad_(True)
 
     optimizer = optim.Adam([generated], lr=0.004)
-    epochs = 1
+    epochs = 100
 
     try:
         for i in range(epochs):
