@@ -91,7 +91,9 @@ func loadOrCreateKey() (crypto.PrivKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	os.WriteFile(keyFile, data, 0600)
+	if err := os.WriteFile(keyFile, data, 0600); err != nil {
+		return nil, err
+	}
 	return privKey, nil
 }
 
