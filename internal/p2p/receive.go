@@ -129,8 +129,8 @@ func HandleReceiveImage(s network.Stream) {
 	os.Remove(tmpOut)
 }
 
-// saveStreamToFile читает весь поток и сохраняет его в указанный файл.
-func HaveStreamToFile(s network.Stream, path string) error {
+// SaveStreamToFile читает весь поток и сохраняет его в указанный файл.
+func SaveStreamToFile(s network.Stream, path string) error {
 	// Создаем папку, если нужно
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
