@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	host "github.com/libp2p/go-libp2p/core/host"
 	network "github.com/libp2p/go-libp2p/core/network"
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -75,58 +76,60 @@ func HandleReceiveStyle(s network.Stream) {
 }
 
 // Обработчик получения изображения для стилизации по протоколу "/receive-image/1.0.0"
-func HandleReceiveImage(s network.Stream) {
-	defer s.Close()
-	// Оборачиваем поток в bufio.Reader
-	reader := bufio.NewReader(s)
-	// Читаем заголовок (ожидается "IMAGE")
-	header, err := reader.ReadString('\n')
-	if err != nil {
-		log.Println("❌ Ошибка чтения заголовка:", err)
-		return
-	}
-	header = strings.TrimSpace(header)
-	if header != "IMAGE" {
-		log.Println("❌ Неверный заголовок, ожидается IMAGE, получено:", header)
-		return
-	}
+func MakeReceiveImageHandler(h host.Host) network.StreamHandler {
+	return func(s network.Stream) {
+		defer s.Close()
+		// Оборачиваем поток в bufio.Reader
+		reader := bufio.NewReader(s)
+		// Читаем заголовок (ожидается "IMAGE")
+		header, err := reader.ReadString('\n')
+		if err != nil {
+			log.Println("❌ Ошибка чтения заголовка:", err)
+			return
+		}
+		header = strings.TrimSpace(header)
+		if header != "IMAGE" {
+			log.Println("❌ Неверный заголовок, ожидается IMAGE, получено:", header)
+			return
+		}
 
-	// Сохраняем оставшиеся данные в файл, создавая уникальное имя в папке "received_images"
-	dir := "received_images"
-	os.MkdirAll(dir, 0755)
-	tmpIn := fmt.Sprintf("%s/received_%d.jpg", dir, time.Now().UnixNano())
-	err = SaveReaderToFile(reader, tmpIn)
-	if err != nil {
-		log.Println("❌ Ошибка сохранения полученного изображения:", err)
-		return
-	}
-	fmt.Println("📥 Изображение получено:", tmpIn)
+		// Сохраняем оставшиеся данные в файл, создавая уникальное имя в папке "received_images"
+		dir := "received_images"
+		os.MkdirAll(dir, 0755)
+		tmpIn := fmt.Sprintf("%s/received_%d.jpg", dir, time.Now().UnixNano())
+		err = SaveReaderToFile(reader, tmpIn)
+		if err != nil {
+			log.Println("❌ Ошибка сохранения полученного изображения:", err)
+			return
+		}
+		fmt.Println("📥 Изображение получено:", tmpIn)
 
-	// Запускаем стилизацию с использованием локального styleFile
-	dirOut := "processed_images"
-	os.MkdirAll(dirOut, 0755)
-	tmpOut := fmt.Sprintf("%s/styled_%d.jpg", dirOut, time.Now().UnixNano())
-	// Сохраняем путь к адресам
-	addrs := []ma.Multiaddr{s.Conn().RemoteMultiaddr()}
+		// Запускаем стилизацию с использованием локального styleFile
+		dirOut := "processed_images"
+		os.MkdirAll(dirOut, 0755)
+		tmpOut := fmt.Sprintf("%s/styled_%d.jpg", dirOut, time.Now().UnixNano())
+		// Сохраняем путь к адресам
+		addrs := []ma.Multiaddr{s.Conn().RemoteMultiaddr()}
 
-	cmd := exec.Command(style.GetPythonCommand(), "style_transfer.py", "stylize", tmpIn, styleFile, tmpOut)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	fmt.Println("⏳ Запуск стилизации для", tmpIn)
-	if err := cmd.Run(); err != nil {
-		log.Println("❌ Ошибка стилизации:", err)
-		SendProcessedImage(s.Conn().RemotePeer(), addrs, "", true, "Ошибка стилизации изображения")
+		cmd := exec.Command(style.GetPythonCommand(), "style_transfer.py", "stylize", tmpIn, styleFile, tmpOut)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		fmt.Println("⏳ Запуск стилизации для", tmpIn)
+		if err := cmd.Run(); err != nil {
+			log.Println("❌ Ошибка стилизации:", err)
+			SendProcessedImage(h, s.Conn().RemotePeer(), addrs, "", true, "Ошибка стилизации изображения")
+			os.Remove(tmpIn)
+			return
+		}
+		fmt.Println("🖼 Стилизация завершена:", tmpOut)
+
+		// Отправляем результат
+		SendProcessedImage(h, s.Conn().RemotePeer(), addrs, tmpOut, false, "")
+
+		// Удаляем временные файлы
 		os.Remove(tmpIn)
-		return
+		os.Remove(tmpOut)
 	}
-	fmt.Println("🖼 Стилизация завершена:", tmpOut)
-
-	// Отправляем результат
-	SendProcessedImage(s.Conn().RemotePeer(), addrs, tmpOut, false, "")
-
-	// Удаляем временные файлы
-	os.Remove(tmpIn)
-	os.Remove(tmpOut)
 }
 
 // SaveStreamToFile читает весь поток и сохраняет его в указанный файл.
