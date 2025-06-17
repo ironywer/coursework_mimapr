@@ -70,7 +70,7 @@ func main() {
 	// Если режим processor, регистрируем обработчики для приема стиля и изображений
 	if mode == "processor" {
 		h.SetStreamHandler("/receive-style/1.0.0", p2p.HandleReceiveStyle)
-		h.SetStreamHandler("/receive-image/1.0.0", p2p.HandleReceiveImage)
+		h.SetStreamHandler("/receive-image/1.0.0", p2p.MakeReceiveImageHandler(h))
 		fmt.Println("🔧 Режим процессора: обработчики для /receive-style/1.0.0 и /receive-image/1.0.0 зарегистрированы.")
 		// Режим процессора работает только для обработки входящих данных
 		select {}
