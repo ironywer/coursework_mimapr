@@ -114,6 +114,13 @@ func onPeerConnected(net network.Network, conn network.Conn, h host.Host) {
 		time.Sleep(time.Second)
 	}
 
+	// Если адресов все ещё нет, используем адрес из соединения
+	if len(addrs) == 0 {
+		if maddr := conn.RemoteMultiaddr(); maddr != nil {
+			addrs = []ma.Multiaddr{maddr}
+		}
+	}
+
 	if len(addrs) == 0 {
 		fmt.Println("⚠️ У пира нет известных адресов, он не будет добавлен:", peerID)
 		return

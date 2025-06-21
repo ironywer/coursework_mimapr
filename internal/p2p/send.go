@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/libp2p/go-libp2p"
 	peerstore "github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 
@@ -71,19 +70,11 @@ func SendImage(h host.Host, receiver peerstore.AddrInfo, imagePath string) {
 }
 
 // Функция отправки обработанного изображения обратно отправителю (в режиме процессора)
-func SendProcessedImage(receiver peerstore.ID, addrs []ma.Multiaddr, filePath string, failed bool, errMsg string) {
-	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
-	if err != nil {
-		log.Println("❌ Ошибка создания временного хоста:", err)
-		return
-	}
-	defer h.Close()
-
+func SendProcessedImage(h host.Host, receiver peerstore.ID, addrs []ma.Multiaddr, filePath string, failed bool, errMsg string) {
 	receiverInfo := peerstore.AddrInfo{ID: receiver, Addrs: addrs}
 	h.Peerstore().AddAddrs(receiverInfo.ID, receiverInfo.Addrs, time.Minute)
 
-	err = h.Connect(context.Background(), receiverInfo)
-	if err != nil {
+	if err := h.Connect(context.Background(), receiverInfo); err != nil {
 		log.Println("❌ Ошибка подключения к получателю:", err)
 		return
 	}

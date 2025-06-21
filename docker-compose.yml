@@ -32,8 +32,9 @@ services:
     environment:
       - MODE=initiator
     # Оверрайдим entrypoint так, чтобы сразу подставить два ответа через stdin:
+    # "printf '%s\n%s\n' '/app/style_image/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg' '/app/test_images' | /usr/local/bin/app initiator"
     entrypoint: ["/bin/sh", "-c", 
-      "printf '%s\n%s\n' '/app/style_image/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg' '/app/test_images' | /usr/local/bin/app initiator"
+      "printf '%s\n%s\n' '/app/style_image/44fe27acdc9959bbf83bcda0960cc4dd.jpg' '/app/test_images' | /usr/local/bin/app initiator"
     ]
   processor1:
     build:
