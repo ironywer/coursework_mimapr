@@ -36,8 +36,7 @@ func Init(dsn string) error {
             id      INTEGER PRIMARY KEY AUTOINCREMENT,
             peer_id TEXT    UNIQUE NOT NULL,
             tokens  INTEGER NOT NULL DEFAULT 0,
-            enabled INTEGER NOT NULL DEFAULT 1,
-            mode    TEXT    NOT NULL DEFAULT 'processor'
+            mode    TEXT    NOT NULL DEFAULT 'turned_off',
         );
     `)
 	return err
