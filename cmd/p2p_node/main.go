@@ -82,6 +82,7 @@ func main() {
 			header, err := reader.ReadString('\n')
 			if err != nil {
 				log.Println("❌ Ошибка чтения результата:", err)
+				p2p.ReportResult(h, *bootstrapInfo, s.Conn().RemotePeer(), false)
 				return
 			}
 			header = strings.TrimSpace(header)
@@ -89,6 +90,7 @@ func main() {
 			if header == "ERROR" {
 				msg, _ := reader.ReadString('\n')
 				log.Println("❌ Процессор сообщил об ошибке:", strings.TrimSpace(msg))
+				p2p.ReportResult(h, *bootstrapInfo, s.Conn().RemotePeer(), false)
 				return
 			}
 
@@ -106,9 +108,11 @@ func main() {
 				_, err = io.Copy(file, reader)
 				if err != nil {
 					log.Println("❌ Ошибка сохранения результата:", err)
+					p2p.ReportResult(h, *bootstrapInfo, s.Conn().RemotePeer(), false)
 					return
 				}
 				log.Println("✅ Обработанный файл получен:", fileName)
+				p2p.ReportResult(h, *bootstrapInfo, s.Conn().RemotePeer(), true)
 			}
 		})
 
@@ -145,7 +149,11 @@ func main() {
 		}
 		imagePath := filepath.Join(dirPath, file.Name())
 
-		receiverID, receiverAddrs := p2p.RequestPeer(h, *bootstrapInfo)
+		receiverID, receiverAddrs, noTokens := p2p.RequestPeer(h, *bootstrapInfo)
+		if noTokens {
+			fmt.Println("❌ Недостаточно токенов для обработки файла:", file.Name())
+			continue
+		}
 		if receiverID == "" {
 			fmt.Println("⚠️ Нет доступных получателей для файла:", file.Name())
 			continue
