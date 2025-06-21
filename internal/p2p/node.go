@@ -11,12 +11,13 @@ import (
 	host "github.com/libp2p/go-libp2p/core/host"
 )
 
-// Запрос назначения пира у сервера
-func RequestPeer(h host.Host, server peerstore.AddrInfo) (peerstore.ID, []ma.Multiaddr) {
+// RequestPeer отправляет запрос серверу на получение адреса обработчика.
+// Третий возвращаемый аргумент показывает, что у инициатора закончились токены.
+func RequestPeer(h host.Host, server peerstore.AddrInfo) (peerstore.ID, []ma.Multiaddr, bool) {
 	stream, err := h.NewStream(context.Background(), server.ID, "/request-peer/1.0.0")
 	if err != nil {
 		log.Println("❌ Ошибка запроса назначения:", err)
-		return "", nil
+		return "", nil, false
 	}
 	defer stream.Close()
 
@@ -24,15 +25,18 @@ func RequestPeer(h host.Host, server peerstore.AddrInfo) (peerstore.ID, []ma.Mul
 	n, err := stream.Read(buf)
 	if err != nil {
 		log.Println("❌ Ошибка чтения ответа от сервера:", err)
-		return "", nil
+		return "", nil, false
 	}
 	resp := string(buf[:n])
 	if resp == "NO_PEER" {
-		return "", nil
+		return "", nil, false
+	}
+	if resp == "NO_TOKENS" {
+		return "", nil, true
 	}
 	parts := strings.Split(resp, "|")
 	if len(parts) < 2 {
-		return "", nil
+		return "", nil, false
 	}
 	peerID, _ := peerstore.Decode(parts[0])
 	var addrs []ma.Multiaddr
@@ -42,5 +46,5 @@ func RequestPeer(h host.Host, server peerstore.AddrInfo) (peerstore.ID, []ma.Mul
 			addrs = append(addrs, a)
 		}
 	}
-	return peerID, addrs
+	return peerID, addrs, false
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -64,6 +65,7 @@ func main() {
 	fmt.Println("✅ Записан bootstrap multiaddr:", bootstrapLine)
 
 	h.SetStreamHandler("/request-peer/1.0.0", handlePeerRequest)
+	h.SetStreamHandler("/report-result/1.0.0", handleResultReport)
 
 	h.Network().Notify(&network.NotifyBundle{
 		ConnectedF:    func(n network.Network, c network.Conn) { onPeerConnected(n, c, h) },
@@ -158,6 +160,26 @@ func handlePeerRequest(s network.Stream) {
 	sender := s.Conn().RemotePeer()
 	var receiverID peer.ID
 
+	// Проверяем и списываем токен у инициатора
+	initiator, err := db.GetUser(sender.String())
+	if err != nil {
+		log.Println("❌ Ошибка чтения пользователя:", err)
+		s.Write([]byte("NO_PEER"))
+		s.Close()
+		return
+	}
+	if initiator.Tokens <= 0 {
+		s.Write([]byte("NO_TOKENS"))
+		s.Close()
+		return
+	}
+	if _, err := db.ChangeTokens(sender.String(), -1); err != nil {
+		log.Println("❌ Ошибка списания токена:", err)
+		s.Write([]byte("NO_PEER"))
+		s.Close()
+		return
+	}
+
 	if len(peerList) <= 1 {
 		fmt.Println("❌ Недостаточно пиров для распределения.")
 		s.Write([]byte("NO_PEER"))
@@ -194,4 +216,31 @@ func handlePeerRequest(s network.Stream) {
 	s.Close()
 
 	fmt.Printf("📤 Назначен получатель для %s ➜ %s\n", sender, receiverID)
+}
+
+// handleResultReport обрабатывает отчет о результате обработки от инициатора
+func handleResultReport(s network.Stream) {
+	defer s.Close()
+	initiator := s.Conn().RemotePeer().String()
+	data, err := io.ReadAll(s)
+	if err != nil {
+		log.Println("❌ Ошибка чтения отчета:", err)
+		return
+	}
+	parts := strings.Split(strings.TrimSpace(string(data)), "|")
+	if len(parts) != 2 {
+		log.Println("⚠️ Неверный формат отчета:", string(data))
+		return
+	}
+	processorID := parts[0]
+	status := parts[1]
+	if status == "OK" {
+		if _, err := db.ChangeTokens(processorID, 1); err != nil {
+			log.Println("❌ Ошибка начисления токена обработчику:", err)
+		}
+	} else {
+		if _, err := db.ChangeTokens(initiator, 1); err != nil {
+			log.Println("❌ Ошибка возврата токена инициатору:", err)
+		}
+	}
 }
