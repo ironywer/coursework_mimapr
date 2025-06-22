@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	p2p "coursework_mimapr/internal/p2p"
 	libp2p "github.com/libp2p/go-libp2p"
 	crypto "github.com/libp2p/go-libp2p/core/crypto"
 	host "github.com/libp2p/go-libp2p/core/host"
@@ -16,7 +17,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-const keyFile = "bootstrap_key.pem"
+const keyFile = "server_key.pem"
 
 var (
 	peers     = make(map[peer.ID]peer.AddrInfo)
@@ -30,7 +31,7 @@ func main() {
 	// 	log.Fatal("❌ Не удалось инициализировать БД:", err)
 	// }
 	// log.Println("✅ БД подключена и таблица users готова")
-	privKey, err := loadOrCreateKey()
+	privKey, err := p2p.LoadOrCreateKey(keyFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -51,10 +52,13 @@ func main() {
 	// if len(addrs) == 0 {
 	// 	log.Fatal("❌ Не удалось получить адреса хоста для записи в bootstrap.txt")
 	//}
-	// Вместо ip4/0.0.0.0 используем DNS-имя сервиса в compose:
-	dnsName := "bootstrap-server" // должно совпадать с service name в docker-compose.yml
+	// Вместо ip4/0.0.0.0 используем DNS-имя сервиса или локальный адрес
+	hostName := os.Getenv("BOOTSTRAP_HOST")
+	if hostName == "" {
+		hostName = "localhost"
+	}
 	bootstrapLine := fmt.Sprintf("/dns4/%s/tcp/9000/p2p/%s\n",
-		dnsName, h.ID().String(),
+		hostName, h.ID().String(),
 	)
 	if err := os.WriteFile("bootstrap.txt", []byte(bootstrapLine), 0644); err != nil {
 		log.Fatalf("❌ Не удалось записать bootstrap.txt: %v", err)
@@ -72,28 +76,6 @@ func main() {
 }
 
 // Загружаем или создаём приватный ключ
-func loadOrCreateKey() (crypto.PrivKey, error) {
-	if _, err := os.Stat(keyFile); err == nil {
-		data, err := os.ReadFile(keyFile)
-		if err != nil {
-			return nil, err
-		}
-		return crypto.UnmarshalPrivateKey(data)
-	}
-
-	privKey, _, err := crypto.GenerateKeyPair(crypto.Ed25519, -1)
-	if err != nil {
-		return nil, err
-	}
-	data, err := crypto.MarshalPrivateKey(privKey)
-	if err != nil {
-		return nil, err
-	}
-	if err := os.WriteFile(keyFile, data, 0600); err != nil {
-		return nil, err
-	}
-	return privKey, nil
-}
 
 // Обработчик подключения
 func onPeerConnected(net network.Network, conn network.Conn, h host.Host) {
