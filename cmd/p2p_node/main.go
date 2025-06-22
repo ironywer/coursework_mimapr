@@ -21,6 +21,10 @@ import (
 )
 
 var styleFile = "style.pt" // Файл, в котором будут признаки стиля
+const (
+	initiatorKeyFile = "initiator_key.pem"
+	processorKeyFile = "processor_key.pem"
+)
 
 // sentStyle отслеживает, для каких пиров уже отправлены признаки стиля.
 var sentStyle = make(map[peerstore.ID]bool)
@@ -33,8 +37,21 @@ func main() {
 	}
 	fmt.Println("Режим работы:", mode)
 
-	// Создаем P2P-узел с открытым портом
-	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	// Выбираем файл ключа и загружаем/создаём его
+	keyPath := initiatorKeyFile
+	if mode == "processor" {
+		keyPath = processorKeyFile
+	}
+	privKey, err := p2p.LoadOrCreateKey(keyPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Создаем P2P-узел с открытым портом и собственной идентичностью
+	h, err := libp2p.New(
+		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
+		libp2p.Identity(privKey),
+	)
 	if err != nil {
 		log.Fatal(err)
 	}
