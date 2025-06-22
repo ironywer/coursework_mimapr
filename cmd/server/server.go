@@ -57,6 +57,7 @@ func main() {
 	if hostName == "" {
 		hostName = "localhost"
 	}
+	fmt.Println("🛰 Используется bootstrap host:", hostName)
 	bootstrapLine := fmt.Sprintf("/dns4/%s/tcp/9000/p2p/%s\n",
 		hostName, h.ID().String(),
 	)
