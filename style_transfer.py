@@ -87,8 +87,10 @@ def apply_style(content_path, style_tensor_path, output_path):
     generated = content.clone().requires_grad_(True)
 
     optimizer = optim.Adam([generated], lr=0.004)
-    epochs = 100
-
+    epochs = int(os.environ.get('EPOCHS', 100))
+    if epochs <= 0:
+        print("❌ Неверное значение EPOCHS. Должно быть больше 0.", file=sys.stderr)
+        sys.exit(1)
     try:
         for i in range(epochs):
             gen_feat = model(generated)

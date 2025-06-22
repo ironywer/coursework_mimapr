@@ -16,7 +16,7 @@ services:
   initiator:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile_user
       args:
         BUILD_SERVICE: cmd/p2p_node
     container_name: initiator
@@ -39,7 +39,7 @@ services:
   processor1:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile_user
       args:
         BUILD_SERVICE: cmd/p2p_node
     container_name: processor1
@@ -50,13 +50,14 @@ services:
     volumes:
       - ./bootstrap.txt:/app/bootstrap.txt:ro
     environment:
+      - EPOCHS=300
       - MODE=processor
     command: ["processor"]
 
   processor2:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile_user
       args:
         BUILD_SERVICE: cmd/p2p_node
     container_name: processor2
@@ -67,13 +68,14 @@ services:
     volumes:
       - ./bootstrap.txt:/app/bootstrap.txt:ro
     environment:
+      - EPOCHS=300
       - MODE=processor
     command: ["processor"]
 
   processor3:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile_user
       args:
         BUILD_SERVICE: cmd/p2p_node
     container_name: processor3
@@ -84,6 +86,7 @@ services:
     volumes:
       - ./bootstrap.txt:/app/bootstrap.txt:ro
     environment:
+      - EPOCHS=300
       - MODE=processor
     command: ["processor"]
 

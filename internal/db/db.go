@@ -35,7 +35,7 @@ func Init(dsn string) error {
         CREATE TABLE IF NOT EXISTS users (
             id      INTEGER PRIMARY KEY AUTOINCREMENT,
             peer_id TEXT    UNIQUE NOT NULL,
-            tokens  INTEGER NOT NULL DEFAULT 0,
+            tokens  INTEGER NOT NULL DEFAULT 5,
             mode    TEXT    NOT NULL DEFAULT 'turned_off',
         );
     `)
