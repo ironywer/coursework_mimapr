@@ -52,10 +52,13 @@ func main() {
 	// if len(addrs) == 0 {
 	// 	log.Fatal("❌ Не удалось получить адреса хоста для записи в bootstrap.txt")
 	//}
-	// Вместо ip4/0.0.0.0 используем DNS-имя сервиса в compose:
-	dnsName := "bootstrap-server" // должно совпадать с service name в docker-compose.yml
+	// Вместо ip4/0.0.0.0 используем DNS-имя сервиса или локальный адрес
+	hostName := os.Getenv("BOOTSTRAP_HOST")
+	if hostName == "" {
+		hostName = "localhost"
+	}
 	bootstrapLine := fmt.Sprintf("/dns4/%s/tcp/9000/p2p/%s\n",
-		dnsName, h.ID().String(),
+		hostName, h.ID().String(),
 	)
 	if err := os.WriteFile("bootstrap.txt", []byte(bootstrapLine), 0644); err != nil {
 		log.Fatalf("❌ Не удалось записать bootstrap.txt: %v", err)
