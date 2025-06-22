@@ -12,6 +12,8 @@ services:
       - "9000:9000"
     volumes:
       - ./bootstrap.txt:/app/bootstrap.txt:write
+    environment:
+      - BOOTSTRAP_HOST=bootstrap-server
 
   initiator:
     build:
