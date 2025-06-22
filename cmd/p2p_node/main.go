@@ -78,9 +78,19 @@ func main() {
 	if err != nil {
 		log.Fatal("❌ Ошибка преобразования в PeerInfo:", err)
 	}
-	err = h.Connect(context.Background(), *bootstrapInfo)
-	if err != nil {
-		log.Fatal("❌ Ошибка подключения к серверу:", err)
+
+	// Пытаемся подключиться несколько раз, ожидая готовности сервера
+	var connectErr error
+	for i := 0; i < 10; i++ {
+		connectErr = h.Connect(context.Background(), *bootstrapInfo)
+		if connectErr == nil {
+			break
+		}
+		log.Println("🔄 Ожидание сервера, попытка", i+1)
+		time.Sleep(2 * time.Second)
+	}
+	if connectErr != nil {
+		log.Fatal("❌ Ошибка подключения к серверу:", connectErr)
 	}
 	fmt.Println("✅ Подключен к серверу:", bootstrapInfo.ID)
 
