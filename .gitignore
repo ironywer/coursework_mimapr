@@ -6,4 +6,6 @@ received_images/
 received_styles/
 test.txt
 style.pt
+weights/*
+!weights/.gitkeep
 *_key.pem

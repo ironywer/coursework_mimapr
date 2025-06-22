@@ -32,8 +32,10 @@ services:
       - ./style_image:/app/style_image:ro
       - ./test_images:/app/test_images:ro
       - ./bootstrap.txt:/app/bootstrap.txt:ro
+      - ./weights:/app/weights:ro
     environment:
       - MODE=initiator
+      - VGG_WEIGHTS=/app/weights/vgg19-dcbb9e9d.pth
     # Оверрайдим entrypoint так, чтобы сразу подставить два ответа через stdin:
     # "printf '%s\n%s\n' '/app/style_image/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg' '/app/test_images' | /usr/local/bin/app initiator"
     entrypoint: ["/bin/sh", "-c", 
@@ -52,9 +54,11 @@ services:
       - coursework-net
     volumes:
       - ./bootstrap.txt:/app/bootstrap.txt:ro
+      - ./weights:/app/weights:ro
     environment:
       - EPOCHS=300
       - MODE=processor
+      - VGG_WEIGHTS=/app/weights/vgg19-dcbb9e9d.pth
     command: ["processor"]
 
   processor2:
@@ -70,9 +74,11 @@ services:
       - coursework-net
     volumes:
       - ./bootstrap.txt:/app/bootstrap.txt:ro
+      - ./weights:/app/weights:ro
     environment:
       - EPOCHS=300
       - MODE=processor
+      - VGG_WEIGHTS=/app/weights/vgg19-dcbb9e9d.pth
     command: ["processor"]
 
   processor3:
@@ -88,9 +94,11 @@ services:
       - coursework-net
     volumes:
       - ./bootstrap.txt:/app/bootstrap.txt:ro
+      - ./weights:/app/weights:ro
     environment:
       - EPOCHS=300
       - MODE=processor
+      - VGG_WEIGHTS=/app/weights/vgg19-dcbb9e9d.pth
     command: ["processor"]
 
 networks:
