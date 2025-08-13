@@ -9,8 +9,9 @@ import (
 	"time"
 
 	p2p "coursework_mimapr/internal/p2p"
+
 	libp2p "github.com/libp2p/go-libp2p"
-	crypto "github.com/libp2p/go-libp2p/core/crypto"
+
 	host "github.com/libp2p/go-libp2p/core/host"
 	network "github.com/libp2p/go-libp2p/core/network"
 	peer "github.com/libp2p/go-libp2p/core/peer"
@@ -57,6 +58,7 @@ func main() {
 	if hostName == "" {
 		hostName = "localhost"
 	}
+	fmt.Println("🛰 Используется bootstrap host:", hostName)
 	bootstrapLine := fmt.Sprintf("/dns4/%s/tcp/9000/p2p/%s\n",
 		hostName, h.ID().String(),
 	)

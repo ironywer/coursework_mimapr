@@ -31,7 +31,19 @@ class VGG(nn.Module):
     def __init__(self):
         super(VGG, self).__init__()
         self.req_features = ['0', '5', '10', '19', '28']
-        self.model = vgg19(weights=VGG19_Weights.DEFAULT).features[:29]
+        weights_path = os.environ.get("VGG_WEIGHTS")
+        if weights_path:
+            if os.path.exists(weights_path):
+                print(f"🔍 Загрузка весов VGG19 из {weights_path}")
+                base = vgg19(weights=None)
+                state = torch.load(weights_path, map_location=device)
+                base.load_state_dict(state)
+            else:
+                raise FileNotFoundError(f"VGG_WEIGHTS указан, но файл не найден: {weights_path}")
+        else:
+            print("⚠️ VGG_WEIGHTS не задан, пробуем скачать веса из torchvision (может не работать офлайн)")
+            base = vgg19(weights=VGG19_Weights.DEFAULT)
+        self.model = base.features[:29]
 
 
     def forward(self, x):
