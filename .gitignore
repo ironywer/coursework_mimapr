@@ -1,6 +1,11 @@
 myenv/
 venv/
 env/
+.venv
+.sinxth
+*.jpg
+*.pt
+*.txt
 processed_images/
 received_images/
 received_styles/
